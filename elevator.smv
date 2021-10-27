@@ -32,7 +32,12 @@ ASSIGN
         TRUE:  elevator_current_floor;
   esac;
 
-  next (user_current_floor) := user_current_floor;
+  --next (user_current_floor) := user_current_floor;
+  next (user_current_floor) := case
+      (state = still) & (elevator_current_floor = target_floor): 1..5;
+      TRUE: user_current_floor;
+  esac;
+  
   next (target_floor) := case
         emergency_fire : 1;
         emergency_earthq & user_current_floor > 1 & (state = goDown) & target_floor > 1: target_floor - 1;
