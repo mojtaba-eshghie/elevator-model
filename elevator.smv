@@ -1,0 +1,74 @@
+MODULE main
+VAR
+  access: boolean;
+  target_floor: 1..5;
+  elevator_current_floor: 1..5;
+  user_current_floor: 1..5;
+  emergency_fire: boolean;
+  emergency_earthq: boolean;
+  state:   { goUp, goDown, still };
+
+
+ASSIGN
+  init (state) := still;
+  next (state) := case
+		    state = still & elevator_current_floor > user_current_floor:  goDown;
+            state = still & elevator_current_floor < user_current_floor:  goUp;
+		    state = goDown & (elevator_current_floor = user_current_floor) : still;
+            state = goUp & (elevator_current_floor = user_current_floor) : still;
+            state = still & target_floor > user_current_floor & access: goUp;
+            state = still & target_floor < user_current_floor & access: goDown;
+            emergency_fire : goDown;
+		    TRUE:                             state;
+  esac;
+
+
+  next (elevator_current_floor) := case
+        state = goDown & elevator_current_floor > user_current_floor : elevator_current_floor - 1;
+        state = goUp & elevator_current_floor < user_current_floor : elevator_current_floor + 1;
+        access & elevator_current_floor > target_floor : elevator_current_floor - 1;
+        access & elevator_current_floor < target_floor : elevator_current_floor + 1;
+        emergency_fire & elevator_current_floor > 1 : elevator_current_floor - 1;
+        TRUE:  elevator_current_floor;
+  esac;
+
+  next (user_current_floor) := user_current_floor;
+  next (target_floor) := case
+        emergency_fire : 1;
+        emergency_earthq & user_current_floor > 1 & (state = goDown) & target_floor > 1: target_floor - 1;
+        emergency_earthq & user_current_floor > 1 & (state = goUp) & target_floor > 1: target_floor - 1;
+        emergency_earthq & (state = still): user_current_floor;
+        TRUE: target_floor;
+  esac;
+
+  next (access) := access;
+
+  init (emergency_fire) := TRUE;
+  next (emergency_fire) := case
+        emergency_fire : emergency_fire;
+        emergency_earthq: FALSE;
+        TRUE: FALSE;
+  esac;
+  
+  init (emergency_earthq) := FALSE;
+  next (emergency_earthq) := case
+        emergency_fire: FALSE;
+        TRUE: FALSE;
+  esac;
+
+
+   
+
+LTLSPEC
+   G(!emergency_fire & !emergency_earthq -> elevator_current_floor = user_current_floor);
+--   G(emergency_fire -> F elevator_current_floor = 1);
+--   what if we have both emerg fire and emerg earthq?    
+--   G (emergency_earthq & (state = goDown) -> next(elevator_current_floor) = elevator_current_floor - 1);
+--   G (emergency_earthq & (state = goUp) -> next(elevator_current_floor) = elevator_current_floor - 1);
+
+
+
+
+-- TODO: check if the higher floor are not starved when someone from the lower floors
+-- pushes buttons constantly... (or maybe vice versa...)
+
