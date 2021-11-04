@@ -1,9 +1,12 @@
 MODULE main
 VAR
   access: boolean;
+  
   target_floor: 1..5;
   elevator_current_floor: 1..5;
+  
   user_current_floor: 1..5;
+
   emergency_fire: boolean;
   emergency_earthq: boolean;
   state:   { goUp, goDown, still };
@@ -12,22 +15,22 @@ VAR
 ASSIGN
   init (state) := still;
   next (state) := case
-		    state = still & elevator_current_floor > user_current_floor:  goDown;
+		state = still & elevator_current_floor > user_current_floor:  goDown;
             state = still & elevator_current_floor < user_current_floor:  goUp;
-		    state = goDown & (elevator_current_floor = user_current_floor) : still;
+		state = goDown & (elevator_current_floor = user_current_floor) : still;
             state = goUp & (elevator_current_floor = user_current_floor) : still;
             state = still & target_floor > user_current_floor & access: goUp;
             state = still & target_floor < user_current_floor & access: goDown;
             emergency_fire : goDown;
-		    TRUE:                             state;
+		TRUE: state;
   esac;
 
 
   next (elevator_current_floor) := case
         state = goDown & elevator_current_floor > user_current_floor : elevator_current_floor - 1;
         state = goUp & elevator_current_floor < user_current_floor : elevator_current_floor + 1;
-        access & elevator_current_floor > target_floor : elevator_current_floor - 1;
-        access & elevator_current_floor < target_floor : elevator_current_floor + 1;
+        target_floor = 3 & access & elevator_current_floor > target_floor : elevator_current_floor - 1; -- check the access only for a particular floor not all of them (target is useful here)
+        target_floor = 3 & access & elevator_current_floor < target_floor : elevator_current_floor + 1; -- we're saying that floor 3 requires access credentials
         emergency_fire & elevator_current_floor > 1 : elevator_current_floor - 1;
         TRUE:  elevator_current_floor;
   esac;
@@ -45,8 +48,14 @@ ASSIGN
         emergency_earthq & (state = still): user_current_floor;
         TRUE: target_floor;
   esac;
+  
+  init (access) := TRUE;
+  next (access) := case
+      target_floor = user_current_floor: TRUE|FALSE; -- When a user reaches the target floor, we randomly chose another access boolean; this implies that we have a new user with a new access 
+      TRUE: access;
+  esac;
 
-  next (access) := access;
+  
 
   init (emergency_fire) := TRUE;
   next (emergency_fire) := case
@@ -65,12 +74,12 @@ ASSIGN
    
 
 LTLSPEC
-   G(!emergency_fire & !emergency_earthq -> elevator_current_floor = user_current_floor);
+--   G(!emergency_fire & !emergency_earthq & access -> F elevator_current_floor = user_current_floor);
 --   G(emergency_fire -> F elevator_current_floor = 1);
 --   what if we have both emerg fire and emerg earthq?    
 --   G (emergency_earthq & (state = goDown) -> next(elevator_current_floor) = elevator_current_floor - 1);
 --   G (emergency_earthq & (state = goUp) -> next(elevator_current_floor) = elevator_current_floor - 1);
-
+     G(!emergency_fire & !emergency_earthq & !access -> elevator_current_floor != user_current_floor);
 
 
 
